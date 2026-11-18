@@ -1,3 +1,9 @@
+export type VdfValue = string | VdfObject;
+
+export interface VdfObject {
+  [key: string]: VdfValue;
+}
+
 export class VdfParseError extends Error {
   readonly line: number;
   readonly column: number;
@@ -25,7 +31,7 @@ const ESCAPE_MAP: Record<string, string> = {
 
 const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
-function setSafeProperty(target: Record<string, unknown>, key: string, value: unknown): void {
+function setSafeProperty(target: VdfObject, key: string, value: VdfValue): void {
   if (FORBIDDEN_KEYS.has(key)) {
     Object.defineProperty(target, key, {
       value,
@@ -38,7 +44,7 @@ function setSafeProperty(target: Record<string, unknown>, key: string, value: un
   target[key] = value;
 }
 
-function isPlainRecord(value: unknown): value is Record<string, unknown> {
+function isPlainRecord(value: unknown): value is VdfObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
@@ -155,18 +161,15 @@ function tokenizeVdf(rawContent: string): VdfToken[] {
 /**
  * Parses Valve KeyValues (.vdf / .acf) text content into a nested plain object.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function parseVdf(content: string): Record<string, any> {
+export function parseVdf(content: string): VdfObject {
   if (typeof content !== 'string') {
     throw new TypeError('VDF content must be a string');
   }
 
   const tokens = tokenizeVdf(content);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const root: Record<string, any> = {};
+  const root: VdfObject = {};
   const stack: Array<{
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    obj: Record<string, any>;
+    obj: VdfObject;
     openLine: number;
     openColumn: number;
   }> = [{ obj: root, openLine: 1, openColumn: 1 }];
@@ -201,8 +204,7 @@ export function parseVdf(content: string): Record<string, any> {
 
     if (next.type === 'open_brace') {
       const existing = Object.prototype.hasOwnProperty.call(frame.obj, key) ? frame.obj[key] : undefined;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let child: Record<string, any>;
+      let child: VdfObject;
       if (isPlainRecord(existing)) {
         child = existing;
       } else {

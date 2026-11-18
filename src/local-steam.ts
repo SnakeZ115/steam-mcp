@@ -57,10 +57,6 @@ export interface OpenSteamViewResult {
   uri: string;
 }
 
-export interface ShutdownSteamClientResult {
-  shutdownRequested: boolean;
-}
-
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -130,6 +126,7 @@ async function querySteamRegistryOutput(valueName: string): Promise<string | nul
   }
   try {
     const { stdout } = await execFileAsync('reg.exe', ['query', STEAM_REGISTRY_KEY, '/v', valueName], {
+      shell: false,
       windowsHide: true,
       timeout: 5000,
     });
@@ -398,6 +395,7 @@ async function openSteamUri(uri: string): Promise<void> {
 
   if (process.platform === 'win32') {
     await execFileAsync('rundll32.exe', ['url.dll,FileProtocolHandler', safeUri], {
+      shell: false,
       windowsHide: true,
       timeout: 10_000,
     });
@@ -405,12 +403,12 @@ async function openSteamUri(uri: string): Promise<void> {
   }
 
   if (process.platform === 'darwin') {
-    await execFileAsync('open', [safeUri], { timeout: 10_000 });
+    await execFileAsync('open', [safeUri], { shell: false, timeout: 10_000 });
     return;
   }
 
   if (process.platform === 'linux') {
-    await execFileAsync('xdg-open', [safeUri], { timeout: 10_000 });
+    await execFileAsync('xdg-open', [safeUri], { shell: false, timeout: 10_000 });
     return;
   }
 
@@ -443,29 +441,4 @@ export async function openSteamView(view: SteamView): Promise<OpenSteamViewResul
     view: validatedView,
     uri,
   };
-}
-
-/**
- * Requests graceful shutdown of the local Steam client using `steam.exe -shutdown`.
- */
-export async function shutdownSteamClient(): Promise<ShutdownSteamClientResult> {
-  if (process.platform === 'win32') {
-    const steamPath = await findSteamPath();
-    const steamExePath = path.join(steamPath, 'steam.exe');
-    if (!(await fileExists(steamExePath))) {
-      throw new Error(`Steam executable not found at: ${steamExePath}`);
-    }
-    await execFileAsync(steamExePath, ['-shutdown'], {
-      windowsHide: true,
-      timeout: 10_000,
-    });
-    return { shutdownRequested: true };
-  }
-
-  if (process.platform === 'linux' || process.platform === 'darwin') {
-    await execFileAsync('steam', ['-shutdown'], { timeout: 10_000 });
-    return { shutdownRequested: true };
-  }
-
-  throw new Error(`Unsupported platform for Steam shutdown: ${process.platform}`);
 }
